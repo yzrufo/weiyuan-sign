@@ -1,14 +1,13 @@
-# Weiyuan 8.0.75 - GitHub Actions macOS 签名 pipeline
-# 纯 Windows 操作端: 把 full_extract 分卷传仓库, 本 workflow 在 macOS runner
-# 上解压 + ad-hoc 签 frida-gadget.dylib + 签主二进制 + 重打 ipa, 出 artifact.
-# 用法见 本机操作.md (Windows 侧 PowerShell 脚本).
+# Weiyuan 8.0.75 - GitHub Actions macOS ??? pipeline
+# ??Windows ????? ??full_extract ???????? ??workflow ??macOS runner
+# ?????+ ad-hoc ??frida-gadget.dylib + ????????+ ??? ipa, ??artifact.
+# ???????????.md (Windows ??PowerShell ???).
 
 name: sign-weiyuan
 
 on:
   workflow_dispatch:
-    # 可选: 手动触发时指定
-  # 也可 push 分卷文件时自动触发 (见 push 段, 默认注释, 按需开)
+    # ???? ???????????  # ??? push ??????????????(??push ?? ??????, ?????)
   # push:
   #   branches: [ main ]
   #   paths:
@@ -16,7 +15,7 @@ on:
 
 jobs:
   sign:
-    runs-on: macos-14   # Apple Silicon mac, 有 codesign
+    runs-on: macos-15   # Apple Silicon mac, ??codesign
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,66 +24,65 @@ jobs:
         run: |
           brew install 7zip 2>/dev/null || \
           curl -L -o /tmp/7z.sh "https://www.7-zip.org/macos/7zzs.sft" || true
-          # 兜底: 用系统自带 xz (Linux/mac 都有) + 7zz 二选一
+          # ???: ????????xz (Linux/mac ???) + 7zz ?????
           which 7zz 7z xz 2>/dev/null || echo "need decompressor"
 
       - name: Decompress full_extract
         run: |
           set -e
           cd "$GITHUB_WORKSPACE"
-          # 分卷: vol.part07z + vol.part07z ... 或单 7z
+          # ???: vol.part07z + vol.part07z ... ??? 7z
           if ls vol.*.7z >/dev/null 2>&1; then
             echo "concatenate split 7z"
             cat vol.part*.7z > vol.7z || cat vol_*.7z > vol.7z
           fi
-          # 解压 (7zz 优先, 否则 xz)
+          # ??? (7zz ???, ??? xz)
           if command -v 7zz >/dev/null; then
             7zz x vol.7z -o.
           elif command -v 7z >/dev/null; then
             7z x vol.7z -o.
           else
-            # 单卷 7z 无法用 xz 解, 提示
-            echo "需要 7z/7zz; 改装 brew 7zip"
+            # ??? 7z ?????xz ?? ???
+            echo "????7z/7zz; ??? brew 7zip"
             brew install 7zip
             7zz x vol.7z -o.
           fi
-          # 确认 full_extract/Payload/WeChat.app 在
-          ls -d full_extract/Payload/WeChat.app
+          # ??? full_extract/Payload/WeChat.app ??          ls -d full_extract/Payload/WeChat.app
 
       - name: Sign frida-gadget.dylib + frameworks + main binary
         run: |
           set -e
           APP="$GITHUB_WORKSPACE/full_extract/Payload/WeChat.app"
           echo "app: $APP"
-          # 1) 签所有 framework 内二进制 + frida-gadget.dylib
+          # 1) ?????framework ?????? + frida-gadget.dylib
           echo "[sign] frida-gadget.dylib"
           codesign --force --sign - "$APP/Frameworks/frida-gadget.dylib"
           echo "[sign] frameworks"
           for fw in "$APP"/Frameworks/*.framework; do
             [ -e "$fw" ] && codesign --force --sign - "$fw" 2>/dev/null || true
           done
-          # 2) 签 app (--deep 递归, 含主二进制 + 全部内嵌)
+          # 2) ??app (--deep ???, ????????+ ??????)
           echo "[sign] app (deep)"
           codesign --force --deep --sign - "$APP"
           echo "[verify]"
           codesign --verify --strict --verbose=2 "$APP" 2>&1 | head -20 || true
 
-      - name: Build signed ipa (POSIX / 分隔符)
+      - name: Build signed ipa (POSIX / ?????
         run: |
           set -e
           PARENT="$GITHUB_WORKSPACE/full_extract"
           cd "$PARENT"
-          rm -f "$GITHUB_WORKSPACE/微颜-gadget-signed.ipa"
-          # 用 zip 保证 zip 内是 Payload/... 且 POSIX 分隔符 (macOS zip 默认 /)
-          zip -qrX "$GITHUB_WORKSPACE/微颜-gadget-signed.ipa" Payload
-          ls -lh "$GITHUB_WORKSPACE/微颜-gadget-signed.ipa"
+          rm -f "$GITHUB_WORKSPACE/???-gadget-signed.ipa"
+          # ??zip ??? zip ??? Payload/... ??POSIX ?????(macOS zip ??? /)
+          zip -qrX "$GITHUB_WORKSPACE/???-gadget-signed.ipa" Payload
+          ls -lh "$GITHUB_WORKSPACE/???-gadget-signed.ipa"
 
       - name: Upload signed ipa as artifact
         uses: actions/upload-artifact@v4
         with:
           name: weiyuan-gadget-signed
-          path: ${{ github.workspace }}/微颜-gadget-signed.ipa
+          path: ${{ github.workspace }}/???-gadget-signed.ipa
           retention-days: 7
 
       - name: Show result
-        run: echo "DONE - 在 Actions 页下 weiyuan-gadget-signed artifact"
+        run: echo "DONE - ??Actions ??? weiyuan-gadget-signed artifact"
