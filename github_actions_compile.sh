@@ -10,10 +10,10 @@ ls o0* | sort | xargs -I{} cat {} > WeChat_orig
 ls -lh WeChat_orig
 echo "size=$(wc -c < WeChat_orig)"
 
-echo "=== [2/6] 解压资源分卷 (r001..r015, 跳过空卷) ==="
+echo "=== [2/6] 解压资源分卷 (r001..r015.tgz, tar 原生 UTF-8 中文文件名) ==="
 mkdir -p Payload/WeChat.app
-for z in r0*.zip; do
-  [ -s "$z" ] && unzip -o -q "$z" -d . || echo "  skip empty $z"
+for t in r0*.tgz; do
+  [ -s "$t" ] && tar -xzf "$t" -C . || echo "  skip empty $t"
 done
 [ -f "Payload/WeChat.app/vipbypass_src/vipbypass.m" ] || { echo "缺 vipbypass.m"; exit 1; }
 echo "资源解压 OK, vipbypass.m 在"
