@@ -1,4 +1,4 @@
-name: beauty-inject
+name: inject-beauty
 
 on:
   workflow_dispatch:
@@ -10,67 +10,58 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Unzip WeChat IPA
+      - name: Download WeChat IPA from release
+        run: |
+          mkdir -p dl
+          wget -O dl/WeChat.ipa "https://github.com/yzrufo/weiyuan-sign/releases/download/v1/WeChat_8079_wx_免费版_v919.ipa"
+          ls -lh dl/WeChat.ipa
+      
+      - name: Unzip IPA
         run: |
           mkdir -p build
-          unzip -q "$GITHUB_WORKSPACE/WeChat_8079_wx_免费版_v919.ipa" -d build
-          ls -la build/Payload/WeChat.app/Frameworks/ | grep -E 'bundle|framework' | head -20
-
-      - name: Copy beauty bundles (if not already)
+          unzip -q dl/WeChat.ipa -d build
+          ls build/Payload/WeChat.app/Frameworks/ | grep -E 'MYSkin|MYStyle' || echo "checking bundles..."
+      
+      - name: Compile beauty loader
         run: |
-          # bundles should already be in the IPA, verify
-          ls -la build/Payload/WeChat.app/Frameworks/ | grep -E 'MYSkin|MYStyle|face_beauty'
-
-      - name: Inject beauty loader
-        run: |
-          python3 inject_beauty.py build/Payload/WeChat.app/WeChat build/Payload/WeChat.app/Frameworks/wechat_beauty_loader.dylib 2>/dev/null || true
-          # If loader doesn't exist yet, we need to compile it first
-          ls build/Payload/WeChat.app/Frameworks/ | grep loader || echo "loader not found"
-
-      - name: Compile beauty loader (if needed)
-        run: |
-          APP="build/Payload/WeChat.app"
-          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-          if [ ! -f "$APP/Frameworks/wechat_beauty_loader.dylib" ]; then
-            echo "Compiling loader..."
-            clang -arch arm64 -isysroot "$SDK" -miphoneos-version-min=12.0 \
-              -fobjc-arc -dynamiclib -framework Foundation \
-              -Wl,-install_name,@executable_path/Frameworks/wechat_beauty_loader.dylib \
-              wechat_beauty_loader.m -o "$APP/Frameworks/wechat_beauty_loader.dylib"
-            chmod +x "$APP/Frameworks/wechat_beauty_loader.dylib"
-          fi
-          ls -lh "$APP/Frameworks/wechat_beauty_loader.dylib"
-
-      - name: Re-inject after compile
+          APP=build/Payload/WeChat.app
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          clang -arch arm64 -isysroot $SDK -miphoneos-version-min=12.0 \
+            -fobjc-arc -dynamiclib -framework Foundation \
+            -Wl,-install_name,@executable_path/Frameworks/wechat_beauty_loader.dylib \
+            wechat_beauty_loader.m -o $APP/Frameworks/wechat_beauty_loader.dylib
+          chmod +x $APP/Frameworks/wechat_beauty_loader.dylib
+          ls -lh $APP/Frameworks/wechat_beauty_loader.dylib
+      
+      - name: Inject loader
         run: |
           python3 inject_beauty.py build/Payload/WeChat.app/WeChat build/Payload/WeChat.app/Frameworks/wechat_beauty_loader.dylib
-          # strip old signature
-          python3 gadget/strip_codesig.py build/Payload/WeChat.app/WeChat 2>/dev/null || true
-
+          python3 strip_codesig.py build/Payload/WeChat.app/WeChat 2>/dev/null || true
+      
       - name: Sign all
         run: |
-          APP="build/Payload/WeChat.app"
-          codesign --force --sign - "$APP/Frameworks/wechat_beauty_loader.dylib"
-          for fw in "$APP"/Frameworks/*.framework; do
+          APP=build/Payload/WeChat.app
+          codesign --force --sign - $APP/Frameworks/wechat_beauty_loader.dylib
+          for fw in $APP/Frameworks/*.framework; do
             [ -e "$fw" ] && codesign --force --sign - "$fw" 2>/dev/null || true
           done
-          for bndl in "$APP"/Frameworks/*.bundle; do
+          for bndl in $APP/Frameworks/*.bundle; do
             [ -e "$bndl" ] && codesign --force --sign - "$bndl" 2>/dev/null || true
           done
-          codesign --force --deep --sign - "$APP"
+          codesign --force --deep --sign - $APP
+          codesign --verify --strict $APP 2>&1 | head -5
           echo "Signing done"
-          codesign --verify --strict "$APP" 2>&1 | head -5 || true
-
+      
       - name: Package IPA
         run: |
           cd build
-          rm -f ../WeChat_8079_beautified_signed.ipa
-          zip -qrX ../WeChat_8079_beautified_signed.ipa Payload
-          ls -lh ../WeChat_8079_beautified_signed.ipa
-
+          rm -f ../WeChat_beautified_signed.ipa
+          zip -qrX ../WeChat_beautified_signed.ipa Payload
+          ls -lh ../WeChat_beautified_signed.ipa
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: WeChat-beautified
-          path: WeChat_8079_beautified_signed.ipa
+          path: WeChat_beautified_signed.ipa
           retention-days: 7
