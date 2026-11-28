@@ -38,9 +38,9 @@ done
 codesign --force --deep --sign - "$APP"
 codesign --verify --strict --verbose=1 "$APP" 2>&1 | head -5 || true
 
-echo "=== [6/6] 打 ipa ==="
-cd "$WS/Payload"
+echo "=== [6/6] 打 ipa (zip 根下 Payload/, POSIX 分隔符) ==="
+# 在 $WS 下 (含 Payload/ 目录) 打, 条目 = Payload/WeChat.app/...
 rm -f "$WS/微颜-vipbypass-signed.ipa"
-zip -qrX "$WS/微颜-vipbypass-signed.ipa" .
 cd "$WS"
+zip -qrX "$WS/微颜-vipbypass-signed.ipa" Payload
 ls -lh "$WS/微颜-vipbypass-signed.ipa"
