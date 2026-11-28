@@ -22,13 +22,13 @@ SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 cp WeChat_orig "Payload/WeChat.app/WeChat"
 clang -arch arm64 -isysroot "$SDK" -miphoneos-version-min=12.0 \
   -fobjc-arc -dynamiclib -framework Foundation -framework UIKit -lobjc \
-  -Wl,-install_name,@executable_path/Frameworks/vipbypass.dylib \
+  -Wl,-install_name,@rpath/vipbypass.dylib \
   "Payload/WeChat.app/vipbypass_src/vipbypass.m" -o "Payload/WeChat.app/Frameworks/vipbypass.dylib"
-echo "  dylib install name 已设为 @executable_path/Frameworks/vipbypass.dylib (绝对路径, 不靠 rpath)"
+echo "  dylib install name 已设为 @rpath/vipbypass.dylib (匹配 LC_RPATH @executable_path/Frameworks)"
 ls -lh "Payload/WeChat.app/Frameworks/vipbypass.dylib"
 
 echo "=== [4/6] 注入主二进制 (完整 inject_dylib.py, __LINKEDIT 同步) + strip 旧签名 ==="
-python3 "$WS/inject_dylib.py" "Payload/WeChat.app/WeChat" "Payload/WeChat.app/Frameworks/vipbypass.dylib" "@executable_path/Frameworks/vipbypass.dylib"
+python3 "$WS/inject_dylib.py" "Payload/WeChat.app/WeChat" "Payload/WeChat.app/Frameworks/vipbypass.dylib" "@rpath/vipbypass.dylib"
 python3 "$WS/strip_codesig.py" "Payload/WeChat.app/WeChat"
 
 echo "=== [5/6] 签名 ==="
