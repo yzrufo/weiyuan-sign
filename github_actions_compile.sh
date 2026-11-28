@@ -22,7 +22,9 @@ SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 cp WeChat_orig "Payload/WeChat.app/WeChat"
 clang -arch arm64 -isysroot "$SDK" -miphoneos-version-min=12.0 \
   -fobjc-arc -dynamiclib -framework Foundation -framework UIKit -lobjc \
+  -Wl,-install_name,@rpath/vipbypass.dylib \
   "Payload/WeChat.app/vipbypass_src/vipbypass.m" -o "Payload/WeChat.app/Frameworks/vipbypass.dylib"
+echo "  dylib install name 已设为 @rpath/vipbypass.dylib (匹配 LC_LOAD_DYLIB)"
 ls -lh "Payload/WeChat.app/Frameworks/vipbypass.dylib"
 
 echo "=== [4/6] 注入主二进制 (完整 inject_dylib.py, __LINKEDIT 同步) + strip 旧签名 ==="
